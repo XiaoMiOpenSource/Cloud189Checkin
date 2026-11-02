@@ -20,7 +20,7 @@ const pushServerChan = (title, desp) => {
     title,
     desp: desp.replaceAll("\n","\n\n"),
   };
-  superagent
+  return superagent
     .post(`https://sctapi.ftqq.com/${serverChan.sendKey}.send`)
     .type("form")
     .send(data)
@@ -28,8 +28,14 @@ const pushServerChan = (title, desp) => {
       logger.info("ServerChan推送成功");
     })
     .catch((err) => {
-      if (err.response?.text) {
-        const { info } = JSON.parse(err.response.text);
+      const text = err && err.response && err.response.text;
+      if (text) {
+        let info = text;
+        try {
+          info = JSON.parse(text).info || text;
+        } catch (e) {
+          info = text;
+        }
         logger.error(`ServerChan推送失败:${info}`);
       } else {
         logger.error(`ServerChan推送失败:${JSON.stringify(err)}`);
@@ -45,7 +51,7 @@ const pushTelegramBot = (title, desp) => {
     chat_id: telegramBot.chatId,
     text: `${title}\n\n${desp}`,
   };
-  superagent
+  return superagent
     .post(`https://api.telegram.org/bot${telegramBot.botToken}/sendMessage`)
     .type("form")
     .send(data)
@@ -72,7 +78,7 @@ const pushWecomBot = (title, desp) => {
       mentioned_mobile_list: [wecomBot.telphone],
     },
   };
-  superagent
+  return superagent
     .post(
       `https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=${wecomBot.key}`
     )
@@ -100,7 +106,7 @@ const pushWxPusher = (title, desp) => {
     content: desp,
     uids: [wxpush.uid],
   };
-  superagent
+  return superagent
     .post("https://wxpusher.zjiecode.com/api/send/message")
     .send(data)
     .then((res) => {
@@ -127,7 +133,7 @@ const pushPlusPusher = (title, desp) => {
     content: desp,
   };
   // 发送请求
-  superagent
+  return superagent
     .post("http://www.pushplus.plus/send/")
     .send(data)
     .then((res) => {
@@ -160,7 +166,7 @@ const pushWPush = (title, desp) => {
     data.topic_code = wpush.topicCode;
   }
   // 发送请求
-  superagent
+  return superagent
     .post("https://api.wpush.cn/api/v1/send")
     .send(data)
     .then((res) => {
@@ -181,7 +187,7 @@ const pushBark = (title, desp) => {
     return;
   }
   const encodedUrl = `${bark.apiServer}/${bark.sendKey}/${encodeURIComponent(title)}/${encodeURIComponent(desp)}`;
-  superagent
+  return superagent
     .get(encodedUrl)
     .then((response) => {
       // 请求成功
@@ -202,7 +208,7 @@ const pushShowDoc = (title, desp) => {
     title: title,
     content: desp,
   };
-  superagent
+  return superagent
     .get(encodedUrl)
     .send(data)
     .then((response) => {
@@ -215,15 +221,18 @@ const pushShowDoc = (title, desp) => {
     });
 };
 
-const push = (title, desp) => {
-  pushServerChan(title, desp);
-  pushTelegramBot(title, desp);
-  pushWecomBot(title, desp);
-  pushWxPusher(title, desp);
-  pushPlusPusher(title, desp);
-  pushWPush(title, desp);
-  pushBark(title, desp);
-  pushShowDoc(title, desp);
-};
+const push = (title, desp) =>
+  Promise.all(
+    [
+      pushServerChan(title, desp),
+      pushTelegramBot(title, desp),
+      pushWecomBot(title, desp),
+      pushWxPusher(title, desp),
+      pushPlusPusher(title, desp),
+      pushWPush(title, desp),
+      pushBark(title, desp),
+      pushShowDoc(title, desp),
+    ].map((p) => Promise.resolve(p).catch(() => {}))
+  );
 
 module.exports = push;
