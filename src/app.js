@@ -132,7 +132,13 @@ async function main() {
     const logs = catLogs();
     const events = recording.replay();
     const content = events.map((e) => `${e.data.join("")}`).join("  \n");
-    push("天翼云盘自动签到任务", logs + content);
+    // 必须 await：否则进程退出时未完成的推送请求会被切断
+    try {
+      await push("天翼云盘自动签到任务", logs + content);
+      await delay(500);
+    } catch (e) {
+      console.error("推送失败:", e && e.message ? e.message : e);
+    }
     recording.erase();
     cleanLogs();
     // 有账号失败时返回非 0，便于计划任务 / 外部监控发现异常
